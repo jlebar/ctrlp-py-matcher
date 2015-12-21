@@ -9,14 +9,19 @@ import re
 # 3) Matches which begin with a capital letter (e.g. matching "bar" in
 #    "FooBar.cpp") or for which the preceeding char is non-alpha.
 # 4) Matches anchored at the end.
-# 5) Matches which end right before the final ".".
-# 6) Matches that end with ".h" (so header files come first).
+# 5) Matches anchored right before ".".
+# 6) Matches which are immediately followed by a non-lower-case-alpha char.
+# 7) Matches that end with ".h" (so header files come first).
 #
 # If the search string does not contain "/", we consider only filenames;
 # otherwise we consider the full path.
 def ItemRank(f, search_lower):
   """
-  >>> ItemRank('lib/Driver/Tool.cpp', 'tool') > ItemRank('lib/Driver/Tools.cpp', 'tool')
+  >>> ItemRank('dir/Tool.cpp', 'tool') > ItemRank('dir/Tools.cpp', 'tool')
+  True
+  >>> ItemRank('dir/ToolFoo', 'tool') > ItemRank('dir/Toolfoo', 'tool')
+  True
+  >>> ItemRank('dir/Tool.cpp', 'tool') > ItemRank('dir/ToolFoo.cpp', 'tool')
   True
   """
   if '/' not in search_lower:
@@ -32,8 +37,10 @@ def ItemRank(f, search_lower):
   beg_token = f[start_idx].isupper() or start_idx == 0 or (
       start_idx > 0 and not f[start_idx - 1].isalpha())
   end_dot = end_idx < len(f) and f[end_idx] == '.'
+  end_token = end_idx < len(f) and not f[end_idx].islower()
   dot_h = f.endswith('.h')
-  return (True, full_match, beg_match, beg_token, end_match, end_dot, dot_h)
+  return (True, full_match, beg_match, beg_token,
+          end_match, end_dot, end_token, dot_h)
 
 def CtrlPPyMatch():
   import vim
