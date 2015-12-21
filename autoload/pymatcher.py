@@ -1,7 +1,6 @@
 import heapq
 import os
 import re
-import vim
 
 # Now take the n best matches from amongst the filenames which contain
 # search, ranked as follows:
@@ -16,11 +15,15 @@ import vim
 # If the search string does not contain "/", we consider only filenames;
 # otherwise we consider the full path.
 def ItemRank(f, search_lower):
+  """
+  >>> ItemRank('lib/Driver/Tool.cpp', 'tool') > ItemRank('lib/Driver/Tools.cpp', 'tool')
+  True
+  """
   if '/' not in search_lower:
     f = os.path.basename(f)
 
   start_idx = f.lower().find(search_lower)
-  end_idx = start_idx + len(search_lower)
+  end_idx = start_idx + len(search_lower)  # exclusive
   if start_idx == -1:
     return (False,)
   beg_match = start_idx == 0
@@ -28,11 +31,13 @@ def ItemRank(f, search_lower):
   full_match = beg_match and end_match
   beg_token = f[start_idx].isupper() or start_idx == 0 or (
       start_idx > 0 and not f[start_idx - 1].isalpha())
-  end_dot = end_idx < len(f) - 1 and f[end_idx + 1] == '.'
+  end_dot = end_idx < len(f) and f[end_idx] == '.'
   dot_h = f.endswith('.h')
   return (True, full_match, beg_match, beg_token, end_match, end_dot, dot_h)
 
 def CtrlPPyMatch():
+  import vim
+
   items = vim.eval('a:items')
   astr = vim.eval('a:str')
   limit = int(vim.eval('a:limit'))
