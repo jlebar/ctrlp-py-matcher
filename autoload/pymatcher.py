@@ -1,89 +1,62 @@
-import vim, re
 import heapq
-from datetime import datetime
+import os
+import re
+import vim
+
+# Now take the n best matches from amongst the filenames which contain
+# search, ranked as follows:
+# 1) Full matches.
+# 2) Matches anchored at the beginning.
+# 3) Matches which begin with a capital letter (e.g. matching "bar" in
+#    "FooBar.cpp") or for which the preceeding char is non-alpha.
+# 4) Matches anchored at the end.
+# 5) Matches which end right before the final ".".
+# 6) Matches that end with ".h" (so header files come first).
+#
+# If the search string does not contain "/", we consider only filenames;
+# otherwise we consider the full path.
+def ItemRank(f, search_lower):
+  if '/' not in search_lower:
+    f = os.path.basename(f)
+
+  start_idx = f.lower().find(search_lower)
+  end_idx = start_idx + len(search_lower)
+  if start_idx == -1:
+    return (False,)
+  beg_match = start_idx == 0
+  end_match = end_idx == len(f)
+  full_match = beg_match and end_match
+  beg_token = f[start_idx].isupper() or start_idx == 0 or (
+      start_idx > 0 and not f[start_idx - 1].isalpha())
+  end_dot = end_idx < len(f) - 1 and f[end_idx + 1] == '.'
+  dot_h = f.endswith('.h')
+  return (True, full_match, beg_match, beg_token, end_match, end_dot, dot_h)
 
 def CtrlPPyMatch():
-    items = vim.eval('a:items')
-    astr = vim.eval('a:str')
-    lowAstr = astr.lower()
-    limit = int(vim.eval('a:limit'))
-    mmode = vim.eval('a:mmode')
-    aregex = int(vim.eval('a:regex'))
+  items = vim.eval('a:items')
+  astr = vim.eval('a:str')
+  limit = int(vim.eval('a:limit'))
+  mmode = vim.eval('a:mmode')
+  aregex = int(vim.eval('a:regex'))
+  rez = vim.eval('s:rez')
 
-    rez = vim.eval('s:rez')
+  if aregex == 1:
+    raise ValueError('Regexp matches are not supported.')
 
-    specialChars = ['^','$','.','{','}','(',')','[',']','\\','/','+']
+  # TODO: Do something with mmode.  Possible values are 'filename-only',
+  # 'first-non-tab', 'until-last-tab', and one other (unsure what).
 
-    regex = ''
-    if aregex == 1:
-        regex = astr
-    else:
-        if len(lowAstr) == 1:
-            c = lowAstr
-            if c in specialChars:
-                c = '\\' + c
-            regex += c
-        else:
-            for c in lowAstr[:-1]:
-                if c in specialChars:
-                    c = '\\' + c
-                regex += c + '[^' + c + ']*'
-            else:
-                c = lowAstr[-1]
-                if c in specialChars:
-                    c = '\\' + c
-                regex += c
+  key_pairs = ((ItemRank(f, astr.lower()), f) for f in items)
+  rez = (f for (k, f)
+         in heapq.nlargest(limit, key_pairs, lambda kp: kp[0])
+         if k[0])  # filter out non-matches
 
-    res = []
-    prog = re.compile(regex)
+  # Use double quoted vim strings, and escape \
+  vimrez = ('"%s"' % f.replace('\\', '\\\\').replace('"', '\\"') for f in rez)
 
-    def filename_score(line):
-        # get filename via reverse find to improve performance
-        slashPos = line.rfind('/')
-        line = line if slashPos == -1 else line[slashPos + 1:]
-
-        lineLower = line.lower()
-        result = prog.search(lineLower)
-        if result:
-            score = result.end() - result.start() + 1
-            score = score + ( len(lineLower) + 1 ) / 100.0
-            score = score + ( len(line) + 1 ) / 1000.0
-            return 1000.0 / score
-
-        return 0
+  vim.command('let s:rez = [%s]' % ','.join(vimrez))
 
 
-    def path_score(line):
-        lineLower = line.lower()
-        result = prog.search(lineLower)
-        if result:
-            score = result.end() - result.start() + 1
-            score = score + ( len(lineLower) + 1 ) / 100.0
-            return 1000.0 / score
-
-        return 0
-
-
-    if mmode == 'filename-only':
-        res = [(filename_score(line), line) for line in items]
-
-    elif mmode == 'first-non-tab':
-        res = [(path_score(line.split('\t')[0]), line) for line in items]
-
-    elif mmode == 'until-last-tab':
-        res = [(path_score(line.rsplit('\t')[0]), line) for line in items]
-
-    else:
-        res = [(path_score(line), line) for line in items]
-
-    #rez.extend([line for score, line in heapq.nlargest(limit, res)])
-    for score, line in heapq.nlargest(limit, res):
-        if score != 0:
-            rez.extend([line])
-
-    # Use double quoted vim strings and escape \
-    vimrez = ['"' + line.replace('\\', '\\\\').replace('"', '\\"') + '"' for line in rez]
-
-    vim.command("let s:regex = '%s'" % regex)
-    vim.command('let s:rez = [%s]' % ','.join(vimrez))
-    
+if __name__ == "__main__":
+    import doctest
+    doctest.testmod()
