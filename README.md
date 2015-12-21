@@ -1,59 +1,68 @@
 ctrlp-py-matcher
 ================
 
-Fast CtrlP matcher based on python
+A CtrlP matcher plugin with sane ranking
 
-Performance difference is up to x22, look at this perf:
+CtrlP is cool, but it doesn't do a great job finding the best match for the
+thing you typed.  (Or maybe I'm just not good enough at configuring it.)
 
-Default matcher:
-```
-FUNCTIONS SORTED ON SELF TIME
-count  total (s)   self (s)  function
-    3  17.768008  17.610161  <SNR>102_MatchIt()
-```
+This plugin attempts to fix this by applying some heuristics.  Basically, we
+prefer matches that hit the beginning or end of the filename.  When we can't do
+that, we prefer matches that begin or end at a word boundary (non-lower-case
+alpha char).
 
-With Py Matcher:
-```
-FUNCTIONS SORTED ON SELF TIME
-count  total (s)   self (s)  function
-    3              0.730215  pymatcher#PyMatch()
-```
+With these changes, the thing I want is almost always the first hit.
 
-To achive such results try to do **long** (5-10+ sym) text queries on a large amount of files (1kk+).
+This plugin doesn't currently support most of CtrlP's fancy search modes.  No
+regexp, no switching from filename to full-path searches.  It's really just a
+hack.
 
-To install this plugin you **need** Vim compiled with `+python` flag:
+This plugin is a fork of [another](https://github.com/FelikZ/ctrlp-py-matcher)
+ctrlp-py-matcher, whose goal was to be faster than CtrlP's vimscript-based
+matcher.  I don't have benchmarks, but unscientifically, this version also feels
+faster than the native vimscript matcher when you have 50k+ files.
+
+Prerequisites
+-------------
+
+You'll need Vim compiled with the `+python` flag:
 ```
 vim --version | grep python
 ```
 
-This plugin should be compatible with vim **7.x** and [NeoVIM](http://neovim.io) as well.
-
-**If you still have performance issues, it can be caused by [bufferline](https://github.com/bling/vim-bufferline) or alike plugins. So if, for example, it caused by bufferline you can switch to [airline](https://github.com/bling/vim-airline) and setup this option:**
-```
-let g:airline#extensions#tabline#enabled = 1
-```
+This plugin should be compatible with vim **7.x** and
+[NeoVIM](http://neovim.io), although I haven't tested it.
 
 Installation
 ------------
-### Pathogen (https://github.com/tpope/vim-pathogen)
-```
-git clone https://github.com/FelikZ/ctrlp-py-matcher ~/.vim/bundle/ctrlp-py-matcher
-```
 
-### Vundle (https://github.com/gmarik/vundle)
-```
-Plugin 'FelikZ/ctrlp-py-matcher'
-```
+First get the package, using your favorite tool:
 
-### NeoBundle (https://github.com/Shougo/neobundle.vim)
-```
-NeoBundle 'FelikZ/ctrlp-py-matcher'
-```
+Pathogen (https://github.com/tpope/vim-pathogen)
 
-### ~/.vimrc setup
+    $ git clone https://github.com/FelikZ/ctrlp-py-matcher ~/.vim/bundle/ctrlp-py-matcher
 
-    let g:ctrlp_match_func = { 'match': 'pymatcher#PyMatch' }
+Vundle (https://github.com/gmarik/vundle)
 
-Full documentation is available [here](https://github.com/FelikZ/ctrlp-py-matcher/blob/master/doc/pymatcher.txt)
+    Plugin 'jlebar/ctrlp-py-matcher'
 
-[![githalytics.com alpha](https://cruel-carlota.pagodabox.com/c38f2a3d6d6ba9a3e67be921ee2f68f0 "githalytics.com")](http://githalytics.com/FelikZ/ctrlp-py-matcher)
+NeoBundle (https://github.com/Shougo/neobundle.vim)
+
+    NeoBundle 'jlebar/ctrlp-py-matcher'
+
+Then add the following line to your vimrc:
+
+    if has('python')
+        let g:ctrlp_match_func = { 'match': 'pymatcher#PyMatch' }
+    endif
+
+Troubleshooting
+---------------
+
+If you have performance issues, it can be caused by
+[bufferline](https://github.com/bling/vim-bufferline) or similar plugins. For
+bufferline specifically, try switching to
+[airline](https://github.com/bling/vim-airline) and adding the following to your
+vimrc:
+
+    let g:airline#extensions#tabline#enabled = 1
